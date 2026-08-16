@@ -3,6 +3,19 @@ import json
 import os
 import requests
 
+# manual fetching of environment variables from .env file
+def load_env_file(filepath):
+    if os.path.exists(filepath):
+        with open(filepath) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, value = line.split('=', 1)
+                    os.environ[key] = value
+
+load_env_file(".env")
+GOOGLE_BOOKS_API_KEY = os.environ.get("GOOGLE_BOOKS_API_KEY")
+
 # Storing the bookshelf data in a JSON file
 DATA_FILE = 'bookshelf.json'
 
@@ -50,7 +63,7 @@ def add_book(title):
         print(f'Could not fetch information for "{title}". Adding with title only.')
         book_info = {
             "title": title,
-            "author": "Unknown",
+            "author(s)": "Unknown",
             "published_date": "Unknown",
             "pages": "Unknown",
             "completed": False
@@ -98,7 +111,7 @@ def fetch_book_info(title):
     try:
         response = requests.get(
             url,
-            params={'q': title},
+            params={'q': title, 'key': GOOGLE_BOOKS_API_KEY},
             timeout=5
         )
         response.raise_for_status()
@@ -109,10 +122,23 @@ def fetch_book_info(title):
     if "items" not in data:
         return None
 
+    # Look for the first result that actually has author info
+    for item in data["items"]:
+        book = item["volumeInfo"]
+        if book.get("authors"):
+            return {
+                "title": book.get("title", title),
+                "author": ", ".join(book["authors"]),
+                "published_date": book.get("publishedDate", "Unknown"),
+                "pages": book.get("pageCount", "Unknown"),
+                "completed": False
+            }
+
+    # fallback: no result had author info, just use the first one
     book = data["items"][0]["volumeInfo"]
     return {
         "title": book.get("title", title),
-        "author(s)": ", ".join(book.get("authors", ["Unknown"])),
+        "author": ", ".join(book.get("authors", ["Unknown"])),
         "published_date": book.get("publishedDate", "Unknown"),
         "pages": book.get("pageCount", "Unknown"),
         "completed": False
