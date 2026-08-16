@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 import requests
+from difflib import get_close_matches
 
 # manual fetching of environment variables from .env file
 def load_env_file(filepath):
@@ -36,6 +37,7 @@ def main():
     parser.add_argument('--list', action='store_true', help='list all books in the bookshelf')
     parser.add_argument('--remove', type=str, help='remove a book from the bookshelf')
     parser.add_argument('--clear', action='store_true', help='clear the entire bookshelf')
+    parser.add_argument('--complete', type=str, help='mark a book as completed')
 
     args = parser.parse_args()
 
@@ -45,6 +47,8 @@ def main():
         list_books()
     elif args.remove:
         remove_book(args.remove)
+    elif args.complete:
+        complete_book(args.complete)
     elif args.clear:
         clear_bookshelf()
     else:
@@ -81,26 +85,73 @@ def list_books():
     for book in bookshelf:
         print(book)
 
+def find_book(search_term, bookshelf):
+    search_term = search_term.lower()
+    exact = [book for book in bookshelf if book['title'].lower() == search_term]
+    if exact:
+        return exact
+
+    substring_matches = [book for book in bookshelf if search_term in book['title'].lower()]
+    if substring_matches:
+        return substring_matches
+
+    titles = [book['title'] for book in bookshelf]
+    close = get_close_matches(search_term, [t.lower() for t in titles], n=3, cutoff=0.6)
+    if close:
+        return [book for book in bookshelf if book['title'].lower() in close]
+
+    return []
+
+def resolve_single_book(search_term, bookshelf):
+    matches = find_book(search_term, bookshelf)
+
+    if not matches:
+        print(f'No books found matching "{search_term}".')
+        return None 
+
+    if len(matches) == 1:
+        return matches[0]
+
+    print(f'Multiple books found matching "{search_term}":')
+    for i, book in enumerate(matches, start=1):
+        print(f'  {i}. {book["title"]}')
+    choice = input('Enter number of the book to select, or press Enter to cancel: ')
+    if not choice.isdigit() or not (1 <= int(choice) <= len(matches)):
+        print('Selection cancelled.')
+        return None
+    return matches[int(choice) - 1]
+
 def remove_book(title):
     bookshelf = load_books()
-    
-    matching_book = next(
-        (book for book in bookshelf if book['title'].lower() == title.lower()),
-        None
-    )
-
-    if matching_book is None:
-        print(f'"{title}" is not in the bookshelf.')
+    book = resolve_single_book(title, bookshelf)
+    if book is None:
         return
-
-    bookshelf.remove(matching_book)
+    bookshelf.remove(book)
     save_books(bookshelf)
-    print(f'Removed "{title}" from the bookshelf.')
+    print(f'Removed "{book["title"]}" from the bookshelf.')
+
+def complete_book(title):
+    bookshelf = load_books()
+    book = resolve_single_book(title, bookshelf)
+    if book is None:
+        return
+    if book['completed']:
+        print(f'"{book["title"]}" is already marked as completed.')
+        print('Would you like to mark it as not completed? (y/n)')
+        response = input().lower()
+        if response == 'y':
+            book['completed'] = False
+            save_books(bookshelf)
+            print(f'Marked "{book["title"]}" as not completed.')
+        return
+    book['completed'] = True
+    save_books(bookshelf)
+    print(f'Marked "{book["title"]}" as completed.')
 
 def clear_bookshelf():
-    print('Are you sure you want to clear the entire bookshelf? This action cannot be undone. (yes/no)')
+    print('Are you sure you want to clear the entire bookshelf? This action cannot be undone. (y/n)')
     response = input().lower()
-    if response == 'yes':
+    if response == 'y':
         save_books([])
         print('Cleared the bookshelf.')
     else:
