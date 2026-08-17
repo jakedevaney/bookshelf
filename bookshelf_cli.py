@@ -33,20 +33,38 @@ def save_books(books):
 # Main function to handle command-line arguments
 def main():
     parser = argparse.ArgumentParser(description='books CLI')
-    parser.add_argument('--add', type=str, help='add a book to the bookshelf')
+    parser.add_argument('--new', type=str, help='add a new book to the bookshelf')
     parser.add_argument('--list', action='store_true', help='list all books in the bookshelf')
     parser.add_argument('--remove', type=str, help='remove a book from the bookshelf')
     parser.add_argument('--clear', action='store_true', help='clear the entire bookshelf')
+    parser.add_argument('--spr', nargs=2, metavar=('TITLE', 'PAGES'), help='set pages read: TITLE PAGES')
+    parser.add_argument('--add', action='store_true', help='when setting pages read, add to the current pages read instead of replacing it')
+    parser.add_argument('--subtract', action='store_true', help='when setting pages read, subtract from the current pages read instead of replacing it')
+    parser.add_argument('--description', type=str, help='show the description of a book')
+    parser.add_argument('--status', type=str, help='show the status of a book')
     parser.add_argument('--complete', type=str, help='mark a book as completed')
 
     args = parser.parse_args()
 
-    if args.add:
-        add_book(args.add)
+    if args.new:
+        add_book(args.new)
     elif args.list:
         list_books()
     elif args.remove:
         remove_book(args.remove)
+    elif args.spr:
+        title, pages = args.spr
+        pages = int(pages)
+        if args.add:
+            set_pages_read(title, pages, mode='add')
+        elif args.subtract:
+            set_pages_read(title, pages, mode='subtract')
+        else:
+            set_pages_read(title, pages)
+    elif args.status:
+        show_status(args.status)
+    elif args.description:
+        show_description(args.description)
     elif args.complete:
         complete_book(args.complete)
     elif args.clear:
@@ -70,6 +88,8 @@ def add_book(title):
             "author(s)": "Unknown",
             "published_date": "Unknown",
             "pages": "Unknown",
+            "description": "No description available.",
+            "pages_read": 0,
             "completed": False
         }
 
@@ -83,7 +103,7 @@ def list_books():
         print('The bookshelf is empty.')
         return
     for book in bookshelf:
-        print(book)
+        print(f'"{book["title"]}" by {book["author"]} ({book["published_date"]}) - {book["pages_read"]}/{book["pages"]} pages read ({book["pages_read"]/book["pages"]*100:.2f}%) - {"Completed" if book["completed"] else "Not Completed"}')
 
 def find_book(search_term, bookshelf):
     search_term = search_term.lower()
@@ -129,6 +149,54 @@ def remove_book(title):
     bookshelf.remove(book)
     save_books(bookshelf)
     print(f'Removed "{book["title"]}" from the bookshelf.')
+
+def set_pages_read(title, pages, mode='set'):
+    bookshelf = load_books()
+    book = resolve_single_book(title, bookshelf)
+    if book is None:
+        print(f'No book found matching "{title}".')
+        return
+
+    current = book.get('pages_read', 0)
+
+    if mode == 'add':
+        new_pages = current + pages
+    elif mode == 'subtract':
+        new_pages = max(0, current - pages)
+    else:
+        new_pages = pages
+
+    book['pages_read'] = new_pages
+
+    if isinstance(book['pages'], int) and new_pages >= book['pages']:
+        book['completed'] = True
+        book['pages_read'] = book['pages']
+        print(f'Set pages read for "{book["title"]}" to {book["pages"]}. Marked as completed.')
+        save_books(bookshelf)
+        return
+    save_books(bookshelf)
+    print(f'Set pages read for "{book["title"]}" to {new_pages}.')
+
+def show_description(title):
+    bookshelf = load_books()
+    book = resolve_single_book(title, bookshelf)
+    if book is None:
+        print(f'No book found matching "{title}".')
+        return
+    description = book.get('description', 'No description available.')
+    print(f'"{book["title"]}" by {book["author"]}:\n{description}')
+
+def show_status(title):
+    bookshelf = load_books()
+    book = resolve_single_book(title, bookshelf)
+    if book is None:
+        print(f'No book found matching "{title}".')
+        return
+    percentage = (book['pages_read'] / book['pages'] * 100) if isinstance(book['pages'], int) and book['pages'] > 0 else "Unknown"
+    print(f'Status of "{book["title"]}" by {book["author"]}:')
+    print(f'Read {book["pages_read"]}/{book["pages"]} pages ({percentage:.2f}%).')
+    print(f'Completed: {"Yes" if book["completed"] else "No"}')
+
 
 def complete_book(title):
     bookshelf = load_books()
@@ -182,6 +250,8 @@ def fetch_book_info(title):
                 "author": ", ".join(book["authors"]),
                 "published_date": book.get("publishedDate", "Unknown"),
                 "pages": book.get("pageCount", "Unknown"),
+                "description": book.get("description", "No description available."),
+                "pages_read": 0,
                 "completed": False
             }
 
@@ -192,6 +262,8 @@ def fetch_book_info(title):
         "author": ", ".join(book.get("authors", ["Unknown"])),
         "published_date": book.get("publishedDate", "Unknown"),
         "pages": book.get("pageCount", "Unknown"),
+        "description": book.get("description", "No description available."),
+        "pages_read": 0,
         "completed": False
     }
 
