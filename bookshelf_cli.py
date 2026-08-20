@@ -34,6 +34,7 @@ def save_books(books):
 def main():
     parser = argparse.ArgumentParser(description='books CLI')
     parser.add_argument('--new', type=str, help='add a new book to the bookshelf')
+    parser.add_argument('--top', type=int, help='list the top N books in the bookshelf based on pages read')
     parser.add_argument('--list', action='store_true', help='list all books in the bookshelf')
     parser.add_argument('--remove', type=str, help='remove a book from the bookshelf')
     parser.add_argument('--clear', action='store_true', help='clear the entire bookshelf')
@@ -47,7 +48,10 @@ def main():
     args = parser.parse_args()
 
     if args.new:
-        add_book(args.new)
+        if args.top:
+            add_book_with_choice(args.new, args.top)
+        else:
+            add_book(args.new)
     elif args.list:
         list_books()
     elif args.remove:
@@ -266,6 +270,81 @@ def fetch_book_info(title):
         "pages_read": 0,
         "completed": False
     }
+
+def fetch_multiple_book_info(title, count=5):
+    url = "https://www.googleapis.com/books/v1/volumes"
+    try:
+        response = requests.get(
+            url,
+            params={'q': title, 'key': GOOGLE_BOOKS_API_KEY, 'maxResults': count},
+            timeout=5
+        )
+        response.raise_for_status()
+        data = response.json()
+    except requests.RequestException:
+        return []
+
+    if "items" not in data:
+        return []
+
+    results = []
+    for item in data["items"][:count]:
+        book = item["volumeInfo"]
+        results.append({
+            "title": book.get("title", title),
+            "author": ", ".join(book.get("authors", ["Unknown"])),
+            "published_date": book.get("publishedDate", "Unknown"),
+            "pages": book.get("pageCount", "Unknown"),
+            "description": book.get("description", "No description available."),
+            "pages_read": 0,
+            "completed": False
+        })
+    return results
+
+def add_book_with_choice(title, count):
+    bookshelf = load_books()
+
+    if any(book['title'].lower() == title.lower() for book in bookshelf):
+        print(f'"{title}" is already in the bookshelf.')
+        return
+
+    results = fetch_multiple_book_info(title, count)
+
+    if not results:
+        print(f'Could not fetch information for "{title}". Adding with title only.')
+        book_info = {
+            "title": title,
+            "author": "Unknown",
+            "published_date": "Unknown",
+            "pages": "Unknown",
+            "description": "No description available.",
+            "pages_read": 0,
+            "completed": False
+        }
+        bookshelf.append(book_info)
+        save_books(bookshelf)
+        print(f'Added "{title}" to the bookshelf.')
+        return
+
+    print(f'Top {len(results)} results for "{title}":')
+    for i, book in enumerate(results, start=1):
+        print(f"{i}. {book['title']} by {book['author']} ({book['published_date']})")
+
+    choice = input(f'Enter number to add, or press Enter to cancel: ')
+    if not choice.isdigit() or not (1 <= int(choice) <= len(results)):
+        print('Selection cancelled.')
+        return
+
+    chosen_book = results[int(choice) - 1]
+
+    # Check if the chosen book is already in the bookshelf
+    if any(book['title'].lower() == chosen_book['title'].lower() for book in bookshelf):
+        print(f'"{chosen_book["title"]}" is already in the bookshelf.')
+        return
+
+    bookshelf.append(chosen_book)
+    save_books(bookshelf)
+    print(f'Added "{chosen_book["title"]}" to the bookshelf.')
 
 if __name__ == '__main__':
     main()

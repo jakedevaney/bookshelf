@@ -1,1 +1,20 @@
-[]
+[
+  {
+    "title": "Dune",
+    "author": "Frank Herbert",
+    "published_date": "2005-08-02",
+    "pages": 548,
+    "description": "Frank Herbert\u2019s classic masterpiece\u2014a triumph of the imagination and one of the bestselling science fiction novels of all time. Set on the desert planet Arrakis, Dune is the story of Paul Atreides\u2014who would become known as Muad'Dib\u2014and of a great family's ambition to bring to fruition humankind's most ancient and unattainable dream. A stunning blend of adventure and mysticism, environmentalism and politics, Dune won the first Nebula Award, shared the Hugo Award, and formed the basis of what is undoubtedly the grandest epic in science fiction.",
+    "pages_read": 0,
+    "completed": false
+  },
+  {
+    "title": "The Intelligent Investor, Rev. Ed",
+    "author": "Benjamin Graham",
+    "published_date": "2009-03-17",
+    "pages": 642,
+    "description": "Since its original publication in 1949, Graham\u2019s book has remained the most respected guide to investing due to his timeless philosophy of \u201cvalue investing.\u201d Here he outlines the principles of stock selection for both the defensive and the enterprising investor, and stresses the advantages of a simple portfolio policy. Special features are the use of numerous comparisons of pairs of common stocks to bring out their elements of strength and weakness, and the construction of investment portfolios designed to meet specific requirements of quality and price attractiveness. \u201cBy far the best book on investing ever written.\u201d -Warren E. Buffett \u201cFully conveys the basic principles of [Graham\u2019s] enormously successful...approach.\u201d -Money",
+    "pages_read": 0,
+    "completed": false
+  }
+]
